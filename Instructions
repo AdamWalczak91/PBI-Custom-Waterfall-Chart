@@ -1,0 +1,70 @@
+'''
+This code in python will create custom waterfall in Power BI. Having access to two columns, one with names for columns and one with values, we can leave rest as filters(for example countries).
+
+'''
+#In order to create a custom visual you have to:
+#    1. Set up python environment on your machine
+#    2. Set up Power BI on your machine
+#    3. Create python visual in your visualizations window in your report
+#    4. Assign columns [values] and [column names] to the visual.
+
+
+# The following code to create a dataframe and remove duplicated rows is always executed and acts as a preamble for your script: 
+
+# dataset = pandas.DataFrame(WaterfallValue, ColumnName)
+# dataset = dataset.drop_duplicates()
+
+# PBI works with selected libraries, for this visual we have to use matplotlib:
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+
+#this step is necessary to make sure we have single value for each column. It works especially good with filters applied to visual from report itself. After pivoting we have to create dictionary to easily extract columns.
+df = pd.pivot_table(dataset, aggfunc = np.sum, values = "WaterfallValue", index = "ColumnName")
+dictionary = df.to_dict()
+
+#At this step we assign values to our columns, if we want some steps in between, we can simply define them however we like.
+col_Production = dictionary["WaterfallValue"]["Production"]
+col_Export = dictionary["WaterfallValue"]["Export"]
+col_Import = dictionary["WaterfallValue"]["Import"]
+col_Result = col_Production - col_Export + col_Import
+
+#List of all columns values
+values = [col_Production, col_Export, col_Import, col_Result]
+
+#List of all columns names
+names = ['Production', 'Export', 'Import', 'Result']
+
+#List of all columns colors (#008ae6 - Blue), (#ff3333 - Red), (#ff3333 - Green)
+colors_map = ['#008ae6', '#ff3333', '#009933', '#008ae6']
+
+#Since this is basically a bar chart, we set starting position of each bar accordingly. It requires manual set up at this point. Production starts at 0, Export starts where production ends, and so on, according to waterfall chart rules.
+BasePositions = [0, col_Production, col_Production - col_Export ,0]
+
+#Chart setup
+plt.figure(figsize=(20,8))
+plt.bar(names, values, bottom = BasePositions, color=colors_map)
+plt.ylim(0, 1.75* col_Production ) #It's good to set up scale yourself, In my case I would never expect ylim to be higher than 175% of production
+plt.tight_layout(pad=5) #Get rif off unnecessary space on sides
+plt.xticks(fontsize=10, rotation=30)
+plt.ylabel("Scale in Billion")
+
+#x coordinates for column labels
+xs = np.arange(0,5,1)
+
+#y coordinates for column labels. Again, it requires some thinking, but the rule is that blue and red have labels at their value, while green has to be adjusted.
+ys = [col_Prod,col_Prod,col_Prod + col_ImpBulk,col_ToPack]
+
+#Loop for setting up labels
+for x,y,value in zip(xs,ys,values):
+
+    label = "{:.0f}".format(value/1000000) #text formatting
+
+    plt.annotate(str(label)+"M", # this is the text
+                 (x,y), # this is the point to label
+                 textcoords="offset points", # how to position the text
+                 xytext=(0,10), # distance from text to points (x,y)
+                 ha='center',
+                 fontsize = 12) # horizontal alignment can be left, right or center
+                 
+plt.show()
